@@ -49,6 +49,11 @@ const status = document.querySelector('.frame-status');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const frameCount = 360;
 const cache = new Map();
+const frameBlobs = new Array(frameCount);
+let sequenceReady = false;
+let loadedCount = 0;
+canvas.width = 1920;
+canvas.height = 1080;
 const pending = new Set();
 const failed = new Set();
 let targetFrame = 0;
@@ -70,14 +75,11 @@ function drawFrame(index) {
 async function loadFrame(index) {
   pending.add(index);
   try {
-    const url = new URL(`hero-frames/${String(index).padStart(3, '0')}.jpg`, document.baseURI);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Frame HTTP ${response.status}`);
-    const bitmap = await createImageBitmap(await response.blob());
+    const bitmap = await createImageBitmap(frameBlobs[index]);
     cache.set(index, bitmap);
-    // Retain only a small window of decoded 4K frames to bound memory use.
+    // Retain only a small window of decoded frames to bound memory use.
     for (const [key, image] of cache) {
-      if (Math.abs(key - Math.round(position)) > 6 && key !== targetFrame) {
+      if (Math.abs(key - Math.round(position)) > 12 && key !== targetFrame) {
         image.close();
         cache.delete(key);
       }
@@ -94,9 +96,10 @@ async function loadFrame(index) {
 }
 
 function preloadFrames() {
+  if (!sequenceReady) return;
   const center = Math.round(position);
   const candidates = [center];
-  for (let offset = 1; offset <= 6; offset++) candidates.push(center + offset * direction);
+  for (let offset = 1; offset <= 12; offset++) candidates.push(center + offset * direction);
   candidates.push(targetFrame);
   for (const index of candidates) {
     if (pending.size >= 3) break;
@@ -124,9 +127,39 @@ function updateAnimation() {
   targetFrame = nextFrame;
   document.querySelector('#progress-fill').style.width = `${progress * 100}%`;
   if (reducedMotion.matches) position = 0;
-  if (!animationId) animationId = requestAnimationFrame(animate);
+  if (sequenceReady && !animationId) animationId = requestAnimationFrame(animate);
 }
 window.addEventListener('scroll', updateAnimation, { passive: true });
 window.addEventListener('resize', updateAnimation);
 reducedMotion.addEventListener('change', updateAnimation);
 updateAnimation();
+
+// Download compressed frames once. Scrolling only decodes from local blobs.
+async function prepareSequence() {
+  if (reducedMotion.matches) return;
+  status.hidden = false;
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < frameCount) {
+      const index = nextIndex++;
+      const url = new URL(`hero-preview/${String(index).padStart(3, '0')}.webp`, document.baseURI);
+      const response = await fetch(url, { cache: 'force-cache' });
+      if (!response.ok) throw new Error(`Frame HTTP ${response.status}`);
+      frameBlobs[index] = await response.blob();
+      loadedCount++;
+      status.textContent = `Загружаем анимацию ${Math.round(loadedCount / frameCount * 100)}%`;
+    }
+  }
+  try {
+    await Promise.all(Array.from({ length: 6 }, worker));
+    sequenceReady = true;
+    status.hidden = true;
+    updateAnimation();
+  } catch {
+    status.textContent = 'Не удалось загрузить анимацию. Обновите страницу, чтобы повторить.';
+  }
+}
+void prepareSequence();
+reducedMotion.addEventListener('change', () => {
+  if (!reducedMotion.matches && !sequenceReady && loadedCount === 0) void prepareSequence();
+});
