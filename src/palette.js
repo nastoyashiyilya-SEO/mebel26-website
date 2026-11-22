@@ -2,17 +2,49 @@ const materials = [
   { name: 'Тёплый дуб', description: 'Природный рисунок дерева и мягкий медовый оттенок.' },
   { name: 'Графитовый камень', description: 'Глубокий серо-зелёный тон с выразительными светлыми прожилками.' },
   { name: 'Матовый шалфей', description: 'Приглушённый природный оттенок и спокойная матовая поверхность.' },
+  { name: 'Слоновая кость', description: 'Тёплый молочный оттенок для светлого и мягкого интерьера.' },
+  { name: 'Терракота', description: 'Глубокий глиняный цвет для тёплого акцента.' },
+  { name: 'Тёмный орех', description: 'Насыщенный коричневый оттенок с рисунком древесины.' },
+  { name: 'Дымчатый синий', description: 'Сдержанный сине-серый оттенок для матовых фасадов.' },
+  { name: 'Песочный беж', description: 'Спокойный песочный тон, который сочетается с деревом и камнем.' },
 ];
 const stage = document.querySelector('.palette-stage');
-const ring = document.querySelector('.palette-ring');
 const segments = [...document.querySelectorAll('.palette-segment')];
 let rotation = 0;
 let drag = null;
 let dragged = false;
+let turnAnimation = 0;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+function renderRotation(angle) {
+  rotation = angle;
+  const radius = Math.min(250, stage.clientWidth * 0.36);
+  segments.forEach((segment, index) => {
+    const radians = (rotation + index * 360 / materials.length) * Math.PI / 180;
+    const depth = Math.sin(radians);
+    const x = Math.cos(radians) * radius;
+    const y = depth * radius * 0.45;
+    const scale = 0.85 + depth * 0.18;
+    segment.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
+    segment.style.zIndex = String(Math.round((depth + 1) * 100));
+  });
+}
 
 function rotateTo(angle) {
-  rotation = angle;
-  ring.style.setProperty('--rotation', `${rotation}deg`);
+  cancelAnimationFrame(turnAnimation);
+  if (stage.classList.contains('is-dragging') || reduceMotion.matches) {
+    renderRotation(angle);
+    return;
+  }
+  const initialAngle = rotation;
+  const started = performance.now();
+  function step(time) {
+    const progress = Math.min(1, (time - started) / 500);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    renderRotation(initialAngle + (angle - initialAngle) * eased);
+    if (progress < 1) turnAnimation = requestAnimationFrame(step);
+  }
+  turnAnimation = requestAnimationFrame(step);
 }
 
 function selectMaterial(index) {
@@ -20,7 +52,7 @@ function selectMaterial(index) {
   document.querySelector('#palette-name').textContent = material.name;
   document.querySelector('#palette-copy').textContent = material.description;
   segments.forEach((segment, position) => segment.setAttribute('aria-pressed', String(position === index)));
-  const frontAngle = 120 - index * 120;
+  const frontAngle = 90 - index * 360 / materials.length;
   const nearestTurn = Math.round((rotation - frontAngle) / 360);
   rotateTo(frontAngle + nearestTurn * 360);
 }
@@ -32,7 +64,7 @@ segments.forEach((segment, index) => {
   });
 });
 document.querySelectorAll('[data-turn]').forEach(button => {
-  button.addEventListener('click', () => rotateTo(rotation + Number(button.dataset.turn) * 120));
+  button.addEventListener('click', () => rotateTo(rotation + Number(button.dataset.turn) * 360 / materials.length));
 });
 stage.addEventListener('keydown', event => {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -42,9 +74,6 @@ stage.addEventListener('keydown', event => {
 stage.addEventListener('pointerdown', event => {
   if (!event.isPrimary || event.button !== 0) return;
   dragged = false;
-  // Begin from the visible orientation if a previous turn is still animating.
-  const matrix = new DOMMatrixReadOnly(getComputedStyle(ring).transform);
-  rotation = Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
   stage.classList.add('is-dragging');
   rotateTo(rotation);
   drag = { id: event.pointerId, x: event.clientX, y: event.clientY, rotation };
@@ -73,3 +102,6 @@ function endDrag(event) {
 stage.addEventListener('pointerup', endDrag);
 stage.addEventListener('pointercancel', endDrag);
 stage.addEventListener('lostpointercapture', endDrag);
+
+window.addEventListener('resize', () => renderRotation(rotation));
+renderRotation(0);

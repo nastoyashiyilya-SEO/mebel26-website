@@ -243,12 +243,9 @@
   margin: 35px auto 0;
   text-align: center;
 }
-.palette-stage {
-  height: 460px;
+ .palette-stage {
+  height: 430px;
   position: relative;
-  display: grid;
-  place-items: center;
-  perspective: 1000px;
   cursor: grab;
   touch-action: pan-y;
   user-select: none;
@@ -256,68 +253,53 @@
 .palette-stage::before {
   content: '';
   position: absolute;
-  width: 65%;
-  height: 45%;
-  bottom: 18px;
+  left: 50%;
+  top: 50%;
+  width: min(500px, 72%);
+  aspect-ratio: 2.22;
+  border: 1px solid #c7c5b8;
   border-radius: 50%;
-  background: #393c2c21;
-  filter: blur(30px);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 25px 35px #5148390b;
   pointer-events: none;
 }
-.palette-tilt {
-  width: min(540px, 85vw);
-  aspect-ratio: 1;
-  transform: rotateX(52deg);
-  transform-style: preserve-3d;
-}
-.palette-ring {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  transform: rotateZ(var(--rotation, 0deg));
-  transition: transform 650ms cubic-bezier(.22, .8, .24, 1);
-  filter: drop-shadow(0 12px 0 #736c5b) drop-shadow(0 18px 15px #302c2429);
-}
+.palette-tilt, .palette-ring { position: absolute; inset: 0; }
 .palette-segment {
   position: absolute;
-  inset: 0;
-  border: 0;
-  border-radius: 50%;
-  clip-path: polygon(50% 50%, 50% 0, 100% 0, 100% 79%, 93.3% 75%);
-  mask-image: radial-gradient(circle, transparent 0 36%, black 36.5%);
-  -webkit-mask-image: radial-gradient(circle, transparent 0 36%, black 36.5%);
-  cursor: inherit;
+  left: 50%;
+  top: 50%;
+  width: 114px;
+  height: 114px;
+  border: 1px solid #ffffff80;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 0 #756e5b, 0 14px 20px #28281b26;
+  transition: box-shadow .2s;
+  will-change: transform;
 }
-.palette-segment:nth-child(2) { transform: rotate(120deg); }
-.palette-segment:nth-child(3) { transform: rotate(240deg); }
-.palette-segment:hover { filter: brightness(1.1); }
-.palette-segment[aria-pressed="true"] { box-shadow: inset 0 0 0 5px #fff7e5; }
-.palette-segment:focus-visible { outline: none; box-shadow: inset 0 0 0 9px #fff7e5; filter: brightness(1.15); }
+.palette-segment:hover { box-shadow: 0 6px 0 #756e5b, 0 18px 28px #28281b40; }
+.palette-segment[aria-pressed="true"] { outline: 2px solid #424c35; outline-offset: 6px; }
+.palette-segment:focus-visible { outline: 3px solid #424c35; outline-offset: 6px; }
+.ivory { background: #e6dfca; }
+.clay { background: #ad7058; }
+.walnut { background: repeating-linear-gradient(94deg, #493325 0, #78533b 5px, #533a29 8px, #684732 15px); }
+.blue { background: #677c85; }
+.sand { background: #c3ae8a; }
 .is-dragging { cursor: grabbing; }
-.is-dragging .palette-ring { transition: none; }
-.palette-controls { display: flex; align-items: center; justify-content: center; gap: 24px; position: relative; }
+.is-dragging .palette-segment { transition: none; cursor: grabbing; }
+.palette-controls { display: flex; align-items: center; justify-content: center; gap: 24px; }
 .palette-controls p { font-size: 13px; color: var(--muted); }
 .palette-turn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid #b7baa9; background: transparent; font-size: 20px; }
 .palette-turn:hover { background: #e7e7df; }
-.palette-description { min-height: 120px; padding-top: 18px; }
+.palette-description { min-height: 120px; padding-top: 22px; }
 .palette-description h3 { font: 36px 'Times New Roman', serif; letter-spacing: -.025em; margin: 0 0 12px; }
 .palette-description p { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 auto; max-width: 450px; }
 @media (max-width: 700px) {
-  .palette-stage { height: 320px; }
+  .palette-stage { height: 290px; }
+  .palette-segment { width: 66px; height: 66px; border-radius: 10px; }
   .palette-picker { margin-top: 15px; }
   .palette-controls { gap: 12px; }
   .palette-controls p { max-width: 180px; font-size: 12px; }
   .palette-description h3 { font-size: 30px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .palette-ring { transition: none; }
-}
-.palette-stage { overflow: clip; }
-.palette-tilt {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(510px, 78vw);
-  transform: translate(-50%, -50%) rotateX(52deg);
-}
+@media (prefers-reduced-motion: reduce) { .palette-segment { transition: none; } }
