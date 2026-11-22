@@ -41,28 +41,92 @@ document.querySelectorAll('dialog').forEach(dialog => {
     if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close();
   });
 });
-const video = document.querySelector('#hero-video');
+const canvas = document.querySelector('#hero-canvas');
+const context = canvas.getContext('2d', { alpha: false });
 const hero = document.querySelector('#hero');
+const poster = document.querySelector('.hero-poster');
+const status = document.querySelector('.frame-status');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-let desiredTime = 0;
-let scheduled = false;
-function seekVideo() {
-  if (!video.seeking && Number.isFinite(video.duration) && Math.abs(video.currentTime - desiredTime) > 0.035) video.currentTime = desiredTime;
+const frameCount = 360;
+const cache = new Map();
+const pending = new Set();
+const failed = new Set();
+let targetFrame = 0;
+let displayedFrame = -1;
+let position = 0;
+let direction = 1;
+let animationId = 0;
+let lastTime = 0;
+
+function drawFrame(index) {
+  const frame = cache.get(index);
+  if (!frame || displayedFrame === index) return;
+  context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+  displayedFrame = index;
+  poster.hidden = true;
+  status.hidden = true;
 }
-function updateVideo() {
-  scheduled = false;
+
+async function loadFrame(index) {
+  pending.add(index);
+  try {
+    const url = new URL(`hero-frames/${String(index).padStart(3, '0')}.jpg`, document.baseURI);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Frame HTTP ${response.status}`);
+    const bitmap = await createImageBitmap(await response.blob());
+    cache.set(index, bitmap);
+    // Retain only a small window of decoded 4K frames to bound memory use.
+    for (const [key, image] of cache) {
+      if (Math.abs(key - Math.round(position)) > 6 && key !== targetFrame) {
+        image.close();
+        cache.delete(key);
+      }
+    }
+    if (index === Math.round(position)) drawFrame(index);
+  } catch {
+    failed.add(index);
+    status.textContent = 'Анимация недоступна. Обновите страницу, чтобы повторить загрузку.';
+    status.hidden = false;
+  } finally {
+    pending.delete(index);
+    preloadFrames();
+  }
+}
+
+function preloadFrames() {
+  const center = Math.round(position);
+  const candidates = [center];
+  for (let offset = 1; offset <= 6; offset++) candidates.push(center + offset * direction);
+  candidates.push(targetFrame);
+  for (const index of candidates) {
+    if (pending.size >= 3) break;
+    if (index < 0 || index >= frameCount || cache.has(index) || pending.has(index) || failed.has(index)) continue;
+    void loadFrame(index);
+  }
+}
+
+function animate(time) {
+  const elapsed = Math.min(50, time - (lastTime || time));
+  lastTime = time;
+  position += (targetFrame - position) * (1 - Math.exp(-elapsed / 110));
+  if (Math.abs(targetFrame - position) < 0.1) position = targetFrame;
+  drawFrame(Math.round(position));
+  preloadFrames();
+  if (position !== targetFrame) animationId = requestAnimationFrame(animate);
+  else { animationId = 0; lastTime = 0; }
+}
+
+function updateAnimation() {
   const distance = hero.offsetHeight - innerHeight;
   const progress = reducedMotion.matches ? 0 : Math.max(0, Math.min(1, -hero.getBoundingClientRect().top / Math.max(1, distance)));
+  const nextFrame = Math.round(progress * (frameCount - 1));
+  direction = nextFrame >= targetFrame ? 1 : -1;
+  targetFrame = nextFrame;
   document.querySelector('#progress-fill').style.width = `${progress * 100}%`;
-  if (Number.isFinite(video.duration)) desiredTime = progress * Math.max(0, video.duration - 0.05);
-  seekVideo();
+  if (reducedMotion.matches) position = 0;
+  if (!animationId) animationId = requestAnimationFrame(animate);
 }
-function scheduleUpdate() {
-  if (!scheduled) { scheduled = true; requestAnimationFrame(updateVideo); }
-}
-video.addEventListener('loadedmetadata', updateVideo);
-video.addEventListener('seeked', seekVideo);
-window.addEventListener('scroll', scheduleUpdate, { passive: true });
-window.addEventListener('resize', scheduleUpdate);
-reducedMotion.addEventListener('change', scheduleUpdate);
-updateVideo();
+window.addEventListener('scroll', updateAnimation, { passive: true });
+window.addEventListener('resize', updateAnimation);
+reducedMotion.addEventListener('change', updateAnimation);
+updateAnimation();
