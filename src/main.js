@@ -47,6 +47,18 @@ const hero = document.querySelector('#hero');
 const poster = document.querySelector('.hero-poster');
 const status = document.querySelector('.frame-status');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const loader = document.querySelector('#site-loader');
+const pageContent = [document.querySelector('main'), document.querySelector('footer')];
+function finishLoading() {
+  loader.hidden = true;
+  document.body.classList.remove('site-loading');
+  pageContent.forEach(element => element.inert = false);
+}
+if (!reducedMotion.matches) {
+  loader.hidden = false;
+  document.body.classList.add('site-loading');
+  pageContent.forEach(element => element.inert = true);
+}
 const frameCount = 360;
 const cache = new Map();
 const frameBlobs = new Array(frameCount);
@@ -137,26 +149,36 @@ updateAnimation();
 // Download compressed frames once. Scrolling only decodes from local blobs.
 async function prepareSequence() {
   if (reducedMotion.matches) return;
-  status.hidden = false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   let nextIndex = 0;
   async function worker() {
     while (nextIndex < frameCount) {
       const index = nextIndex++;
       const url = new URL(`hero-preview/${String(index).padStart(3, '0')}.webp`, document.baseURI);
-      const response = await fetch(url, { cache: 'force-cache' });
+      const response = await fetch(url, { cache: 'force-cache', signal: controller.signal });
       if (!response.ok) throw new Error(`Frame HTTP ${response.status}`);
       frameBlobs[index] = await response.blob();
       loadedCount++;
-      status.textContent = `Загружаем анимацию ${Math.round(loadedCount / frameCount * 100)}%`;
+      const percent = Math.round(loadedCount / frameCount * 100);
+      document.querySelector('#loader-percent').textContent = `${percent}%`;
+      document.querySelector('#loader-fill').style.width = `${percent}%`;
+      document.querySelector('.loader-track').setAttribute('aria-valuenow', String(percent));
     }
   }
   try {
     await Promise.all(Array.from({ length: 6 }, worker));
     sequenceReady = true;
-    status.hidden = true;
+    await loadFrame(0);
+    finishLoading();
     updateAnimation();
   } catch {
-    status.textContent = 'Не удалось загрузить анимацию. Обновите страницу, чтобы повторить.';
+    controller.abort();
+    finishLoading();
+    status.hidden = false;
+    status.textContent = 'Интерьер показан без анимации. Обновите страницу, чтобы повторить загрузку.';
+  } finally {
+    clearTimeout(timeout);
   }
 }
 void prepareSequence();
