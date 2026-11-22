@@ -1,3 +1,4 @@
+import './palette.js';
 const products = [
   { name: 'Кухня «Линия»', category: 'kitchen', label: 'Кухни' },
   { name: 'Шкаф «Тихий»', category: 'storage', label: 'Хранение' },

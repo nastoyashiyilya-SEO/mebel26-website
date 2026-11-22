@@ -40,10 +40,24 @@
 </section>
 <section class="materials section" id="materials">
   <div class="section-heading"><div><p class="section-label">Палитра вашего интерьера</p><h2>Хочется прикоснуться.</h2></div><p>Тёплое дерево, выразительный камень,<br>спокойные матовые поверхности.</p></div>
-  <div class="material-grid">
-    <article><div class="material-sample oak" aria-hidden="true"></div><h3>Тепло дерева</h3><p>Природный рисунок и мягкие оттенки.</p></article>
-    <article><div class="material-sample stone" aria-hidden="true"></div><h3>Глубина камня</h3><p>Выразительный акцент в спокойном пространстве.</p></article>
-    <article><div class="material-sample matte" aria-hidden="true"></div><h3>Мягкость цвета</h3><p>Матовые поверхности в природной палитре.</p></article>
+  <div class="palette-picker">
+    <div class="palette-stage" aria-label="Вращающаяся палитра материалов" aria-describedby="palette-help">
+      <div class="palette-tilt">
+        <div class="palette-ring">
+          <button class="palette-segment oak" data-material="0" aria-label="Выбрать тёплый дуб" aria-pressed="false"></button>
+          <button class="palette-segment stone" data-material="1" aria-label="Выбрать графитовый камень" aria-pressed="false"></button>
+          <button class="palette-segment matte" data-material="2" aria-label="Выбрать матовый шалфей" aria-pressed="false"></button>
+        </div>
+      </div>
+    </div>
+    <div class="palette-controls">
+      <button class="palette-turn" data-turn="-1" aria-label="Повернуть палитру влево">←</button>
+      <p id="palette-help">Вращайте кольцо и нажмите на оттенок</p>
+      <button class="palette-turn" data-turn="1" aria-label="Повернуть палитру вправо">→</button>
+    </div>
+    <div class="palette-description" aria-live="polite" aria-atomic="true">
+      <h3 id="palette-name"></h3><p id="palette-copy"></p>
+    </div>
   </div>
   <p class="demo-note">Примеры сочетаний для вдохновения. Доступные материалы уточняются при разработке проекта.</p>
 </section>
